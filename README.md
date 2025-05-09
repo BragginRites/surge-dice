@@ -1,8 +1,31 @@
-# Surge Dice: Core Mechanics
+# Surge Dice
 
-## Introduction
+Surge Dice is a Foundry VTT module that introduces an element of unpredictable magical energy into your game, represented by a shared pool of "Control" and "Chaos" points. This system reflects a dynamic push and pull of magical forces, inspired by the Destiny Dice mechanic from the Star Wars™ Roleplaying Game by Fantasy Flight Games. It is designed to be system-agnostic for various TTRPGs like D&D 5e or Pathfinder 2e.
 
-Surge Dice introduce an element of unpredictable magical energy into the game, represented by a shared pool of "Control" and "Chaos" points. This system reflects a dynamic push and pull of magical forces. The core concept is inspired by the Destiny Dice mechanic found in the Star Wars™ Roleplaying Game by Fantasy Flight Games. This mechanic is designed to be system-agnostic and can be adapted for use in various tabletop role-playing games, such as D&D 5e, Pathfinder 2e, or others.
+Coffee helps me stay up to 2am to write these modules. Thank you for the lack of sleep in advance!
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bragginrites)
+
+## Other Modules
+
+Check out my other module(s):
+
+- [BG3 Inspired HUD](https://github.com/BragginRites/bg3-inspired-hotbar)
+- [Inspect Statblock](https://github.com/BragginRites/inspect-statblock)
+
+## Quick Usage
+
+- **Installation**:
+  1. Open Foundry VTT and navigate to **Add-on Modules**.
+  2. Click **Install Module** and paste this manifest URL:
+     ```
+     https://github.com/BragginRites/surge-dice/releases/download/0.1.0/module.json
+     ```
+  3. Click **Install** and enable the module in your world settings.
+- **Core Functionality**:
+    - At the beginning of each game session, all participants collectively roll a single Surge Die (a special 10-sided die).
+    - The result of this roll determines the initial state of the Surge Pool (Control and Chaos points) for the session.
+    - Participants can spend Control or Chaos points to influence the game, with spending one type of point generating the other.
 
 ## Rolling the Surge Die
 
@@ -46,13 +69,9 @@ This system can be used to influence the flow of events in the game. The uses be
 
 *   **Surge of Power:** Spend 1 Control point to gain a mechanical benefit on a dice roll (e.g., advantage, a bonus, a re-roll). The exact benefit should be defined by the GM for the specific game system.
 
-*(More specific uses for Control Points can be developed to fit the theme and mechanics of your chosen game system.)*
-
 ### Example Basic Chaos Point Uses (Often GM-Initiated)
 
 *   **GM-Initiated Effect:** Spend 1 Chaos point to introduce a complication, an unexpected turn of events, or a narrative twist, reflecting the unpredictable nature of ambient energies or fate.
-
-*(More specific uses for Chaos Points can be developed to fit the theme and mechanics of your chosen game system.)*
 
 #### Example GM Mechanical Interventions:
 
@@ -60,4 +79,12 @@ This system can be used to influence the flow of events in the game. The uses be
 *   **Environmental Complication:** Spend 1 Chaos to introduce a sudden environmental challenge or change that affects some or all characters.
 *   **Increase Difficulty:** Spend 1 Chaos to temporarily increase the difficulty of a task a player is attempting.
 
-This `README.md` provides a foundational understanding of the Surge Dice mechanics. GMs are encouraged to adapt and detail the specific mechanical implementations of Control and Chaos point uses to best suit their chosen game system and campaign style. 
+This `README.md` provides a foundational understanding of the Surge Dice mechanics. GMs are encouraged to adapt and detail the specific mechanical implementations of Control and Chaos point uses to best suit their chosen game system and campaign style.
+
+## Acknowledgments
+
+The core concept for Surge Dice is inspired by the Destiny Dice mechanic found in the Star Wars™ Roleplaying Game by Fantasy Flight Games.
+
+## Support
+
+For issues, bugs, or feature requests, please submit them via [GitHub Issues](https://github.com/BragginRites/surge-dice/issues). 
