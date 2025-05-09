@@ -1,0 +1,15 @@
+<div class="pool-header">
+  <h2>Surge Pool {{#if isGM}}<button class="group-roll" title="Request group roll">🎲</button> <button class="sync-pool" title="Sync Pool to Players">🔄</button>{{/if}}</h2>
+  <button class="close-button">&times;</button>
+</div>
+<div class="surge-pool-container">
+  <div class="pool-section control">
+    <div class="pool-value">{{control}}</div>
+    <button class="use-control" {{#unless control}}disabled{{/unless}}>Control</button>
+  </div>
+  <div class="pool-divider">|</div>
+  <div class="pool-section chaos">
+    <div class="pool-value">{{chaos}}</div>
+    <button class="use-chaos" {{#unless chaos}}disabled{{/unless}}>Chaos</button>
+  </div>
+</div> 

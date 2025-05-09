@@ -1,0 +1,622 @@
+import { SETTINGS } from './settings.js'; // Import SETTINGS
+import { SURGE_DIE_LABELS, SURGE_DIE_CATEGORY } from './surge-die.js'; // Import constants
+
+// Username to Character Name Mapping
+const USER_TO_CHARACTER_NAME_MAP = {
+  "Gamemaster": "The World",
+  "Jake": "Fizz",
+  "Jacob": "Persys",
+  "Bianca": "Aureilyn",
+  "Minh": "Eldrin",
+  "Rufus": "Lyra",
+  "Tom": "Domingo",
+  "Ali": "Soren"
+};
+
+let surgeSocket; // Module-level variable for the socket
+let surgePool = null; // Make surgePool accessible to top-level functions if needed for callbacks
+
+// Called on ALL clients (including sender and GM) to synchronize the pool state
+function syncPoolState(newState) {
+  if (surgePool) {
+    console.log(`Surge Dice: Client ${game.user.name} received syncPoolState:`, newState);
+    surgePool.control = newState.control;
+    surgePool.chaos = newState.chaos;
+    surgePool.render(true); // Re-render UI
+
+    // If this client is the GM, they also save this authoritative state
+    if (game.user.isGM) {
+      console.log("Surge Dice: GM saving synchronized pool state to settings.");
+      game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, newState.control);
+      game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, newState.chaos);
+    }
+  } else {
+    console.error("Surge Dice: surgePool not available for syncPoolState.");
+  }
+}
+
+// Called on player clients to update their UI from GM broadcast
+function updatePlayerPoolUI(poolData) {
+  if (!surgePool) {
+    // This can happen if a socket message arrives before initializeSurgePool has completed on this client.
+    // The pool will sync correctly once initialized and it renders or receives another update.
+    console.warn("Surge Dice: updatePlayerPoolUI called, but local surgePool object is not yet initialized. Pool will sync on next render/update.", poolData);
+    return;
+  }
+
+  if (!game.user.isGM) { // Ensure it's a player and pool exists
+    console.log(`Surge Dice: Player ${game.user.name} received pool update:`, poolData);
+    const oldControl = surgePool.control;
+    const oldChaos = surgePool.chaos;
+
+    surgePool.control = poolData.control;
+    surgePool.chaos = poolData.chaos;
+    surgePool.render(true); // Re-render player's UI
+
+    // Notify player ONLY if a point was spent
+    const initiatorUsername = poolData.initiatorName || "Someone"; // Fallback for initiator username
+    const displayName = USER_TO_CHARACTER_NAME_MAP[initiatorUsername] || initiatorUsername;
+    const action = poolData.actionType;
+
+    if (action === "spentControl") {
+      ui.notifications.info(`The resonance stills—${displayName} reclaims control from within.`);
+    } else if (action === "spentChaos") {
+      ui.notifications.info(`Searing echoes rumble through ${displayName}—chaos answers!`);
+    }
+    // No other notifications from this function
+
+  } else if (game.user.isGM) {
+    // GM should not process this specific message meant for players, their UI is already updated.
+  } else {
+    console.error("Surge Dice: surgePool not available for updatePlayerPoolUI on client.");
+  }
+}
+
+// This function will be called on other clients via socketlib
+function showRollDialog(requesterName) {
+  console.log(`Surge Dice: Received roll request from ${requesterName}, showing dialog to ${game.user.name}`);
+  if (surgePool) { // Ensure surgePool is available
+    new Dialog({
+      title: "Surge Roll Request",
+      content: `<p>${requesterName} has requested a Surge Roll!</p>`,
+      buttons: {
+        roll: {
+          label: "Roll Surge Die",
+          callback: () => surgePool.handlePlayerRoll() // Call method on the global surgePool instance
+        }
+      },
+      default: "roll"
+    }).render(true);
+  } else {
+    console.error("Surge Dice: surgePool not initialized when trying to show roll dialog.");
+    ui.notifications.error("Surge Pool is not available.");
+  }
+}
+
+export class SurgePool {
+  constructor() {
+    // All clients now load directly from game settings.
+    const savedControl = game.settings.get('surge-dice', SETTINGS.GM_POOL_CONTROL);
+    const savedChaos = game.settings.get('surge-dice', SETTINGS.GM_POOL_CHAOS);
+    
+    this.control = (typeof savedControl === 'number') ? savedControl : 0;
+    this.chaos = (typeof savedChaos === 'number') ? savedChaos : 0;
+    
+    console.log(`Surge Dice: Client ${game.user.id} (${game.user.name}) initial pool state from settings - Control: ${this.control}, Chaos: ${this.chaos} (isGM: ${game.user.isGM})`);
+
+    this.element = null;
+    this.position = { left: 100, top: 100 }; 
+    this.isDragging = false;
+    this.dragOffset = { x: 0, y: 0 };
+    this.currentGroupRollData = { // Added for collecting group roll results
+        rolls: [],
+        totalChaosForGroupRoll: 0,
+        totalControlForGroupRoll: 0
+    };
+    // Socket registration is now handled by registerSocketlibHandlers
+  }
+
+  get template() {
+    return `modules/surge-dice/templates/surge-pool.hbs`;
+  }
+
+  async getData() {
+    return {
+      control: this.control,
+      chaos: this.chaos,
+      isGM: game.user.isGM
+    };
+  }
+
+  async render(force = false) {
+    // Check if already rendered and visible (not display: none)
+    if (!force && this.element && document.body.contains(this.element) && this.element.style.display !== 'none') return;
+
+    const content = await renderTemplate(this.template, await this.getData());
+    
+    if (!this.element || !document.body.contains(this.element)) {
+      if (this.element) this.element.remove(); // Clean up if old element exists but not in DOM
+
+      const div = document.createElement('div');
+      div.id = 'surge-pool';
+      div.innerHTML = content;
+      document.body.appendChild(div);
+      this.element = div;
+
+      // Load saved position or center
+      const savedLeft = game.settings.get('surge-dice', SETTINGS.SURGE_POOL_LEFT);
+      const savedTop = game.settings.get('surge-dice', SETTINGS.SURGE_POOL_TOP);
+
+      if (savedLeft !== null && savedTop !== null) {
+        console.log(`Surge Dice: Loading saved position - Left: ${savedLeft}, Top: ${savedTop}`);
+        this.position.left = savedLeft;
+        this.position.top = savedTop;
+      } else {
+        console.log("Surge Dice: No saved position found, centering window.");
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const rect = div.getBoundingClientRect();
+        this.position.left = (vw - rect.width) / 2;
+        this.position.top = (vh - rect.height) / 2;
+      }
+      this.activateListeners();
+    } else {
+      this.element.innerHTML = content;
+      // Ensure event listeners are active if we only re-render innerHTML
+      this.activateListeners(); 
+    }
+    
+    this.element.style.left = `${this.position.left}px`;
+    this.element.style.top = `${this.position.top}px`;
+    this.element.style.display = 'block'; // Use display: block to show
+  }
+
+  activateListeners() {
+    if (!this.element) return;
+    // Remove old listeners to prevent duplicates if called multiple times
+    const oldHeader = this.element.querySelector('.pool-header');
+    if (oldHeader && oldHeader._dragStartHandler) {
+      oldHeader.removeEventListener('mousedown', oldHeader._dragStartHandler);
+      document.removeEventListener('mousemove', document._dragMoveHandler);
+      document.removeEventListener('mouseup', document._dragEndHandler);
+    }
+
+    const header = this.element.querySelector('.pool-header');
+    header._dragStartHandler = this.#handleDragStart.bind(this);
+    document._dragMoveHandler = this.#handleDragMove.bind(this); // Store on document to ensure removal
+    document._dragEndHandler = this.#handleDragEnd.bind(this);   // Store on document to ensure removal
+
+    header.addEventListener('mousedown', header._dragStartHandler);
+    document.addEventListener('mousemove', document._dragMoveHandler);
+    document.addEventListener('mouseup', document._dragEndHandler);
+
+    this.element.querySelector('.use-control').onclick = () => this.useControl();
+    this.element.querySelector('.use-chaos').onclick = () => this.useChaos();
+    const groupRollBtn = this.element.querySelector('.group-roll');
+    if (groupRollBtn) {
+      groupRollBtn.onclick = () => this.requestGroupRoll();
+    }
+    const syncPoolBtn = this.element.querySelector('.sync-pool');
+    if (syncPoolBtn) {
+      syncPoolBtn.onclick = () => this.broadcastPoolState();
+    }
+    this.element.querySelector('.close-button').onclick = () => this.close();
+  }
+
+  #handleDragStart(event) {
+    this.isDragging = true;
+    const rect = this.element.getBoundingClientRect();
+    this.dragOffset = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+    this.element.style.cursor = 'grabbing';
+  }
+
+  #handleDragMove(event) {
+    if (!this.isDragging) return;
+    
+    this.position = {
+      left: event.clientX - this.dragOffset.x,
+      top: event.clientY - this.dragOffset.y
+    };
+    
+    this.element.style.left = `${this.position.left}px`;
+    this.element.style.top = `${this.position.top}px`;
+  }
+
+  #handleDragEnd() {
+    if (!this.isDragging) return; // Prevent saving if not actually dragged
+    this.isDragging = false;
+    if (this.element) {
+      this.element.style.cursor = 'grab';
+      console.log(`Surge Dice: Saving position - Left: ${this.position.left}, Top: ${this.position.top}`);
+      game.settings.set('surge-dice', SETTINGS.SURGE_POOL_LEFT, this.position.left);
+      game.settings.set('surge-dice', SETTINGS.SURGE_POOL_TOP, this.position.top);
+    }
+  }
+
+  useControl() {
+    if (game.user.isGM) {
+      if (this.control > 0) {
+        const newControl = this.control - 1;
+        const newChaos = this.chaos + 1;
+        
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, newControl);
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, newChaos);
+        
+        this.control = newControl;
+        this.chaos = newChaos;
+        
+        console.log(`Surge Dice: GM used Control. New pool: C${this.control}/X${this.chaos}. Settings updated.`);
+        this.render(true);
+        this.broadcastPoolState(game.user.name, "spentControl");
+      } else {
+        ui.notifications.warn("Cannot use Control: No points available.");
+      }
+    } else {
+      // Player requests GM to use Control
+      if (this.control > 0) { // Optimistic check on client-side, GM will verify
+        console.log(`Surge Dice: Player ${game.user.name} requesting to use Control point.`);
+        if (surgeSocket) {
+          surgeSocket.executeAsGM("requestPoolChange", { action: "useControl", userId: game.user.id });
+        } else {
+          console.error("Surge Dice: Player cannot request pool change, socket not initialized!");
+          ui.notifications.error("Cannot request change: connection issue.");
+        }
+      } else {
+        ui.notifications.warn("Cannot use Control: No points available (according to your local view).");
+      }
+    }
+  }
+
+  useChaos() {
+    if (game.user.isGM) {
+      if (this.chaos > 0) {
+        const newChaos = this.chaos - 1;
+        const newControl = this.control + 1;
+
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, newChaos);
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, newControl);
+
+        this.chaos = newChaos;
+        this.control = newControl;
+
+        console.log(`Surge Dice: GM used Chaos. New pool: C${this.control}/X${this.chaos}. Settings updated.`);
+        this.render(true);
+        this.broadcastPoolState(game.user.name, "spentChaos");
+      } else {
+        ui.notifications.warn("Cannot use Chaos: No points available.");
+      }
+    } else {
+      // Player requests GM to use Chaos
+      if (this.chaos > 0) { // Optimistic check on client-side, GM will verify
+        console.log(`Surge Dice: Player ${game.user.name} requesting to use Chaos point.`);
+        if (surgeSocket) {
+          surgeSocket.executeAsGM("requestPoolChange", { action: "useChaos", userId: game.user.id });
+        } else {
+          console.error("Surge Dice: Player cannot request pool change, socket not initialized!");
+          ui.notifications.error("Cannot request change: connection issue.");
+        }
+      } else {
+        ui.notifications.warn("Cannot use Chaos: No points available (according to your local view).");
+      }
+    }
+  }
+
+  async requestGroupRoll() {
+    // This button is GM-only, so we can assume game.user.isGM here.
+    console.log("Surge Dice: GM initiated group roll. Resetting main pool to 0/0.");
+
+    // Reset main pool values
+    this.control = 0;
+    this.chaos = 0;
+
+    // Update game settings to reflect the reset
+    game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, 0);
+    game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, 0);
+
+    // Update GM's UI immediately
+    this.render(true);
+
+    // Broadcast the reset state to all players
+    this.broadcastPoolState(game.user.name, "poolReset"); // Use a specific actionType for reset
+
+    // Reset data for this new group roll instance (collecting individual rolls)
+    this.currentGroupRollData = { rolls: [], totalChaosForGroupRoll: 0, totalControlForGroupRoll: 0 };
+
+    console.log("Surge Dice: GM requesting group roll (dialog for GM)");
+    new Dialog({
+      title: "Surge Roll Request",
+      content: `<p>Make your Surge Roll!</p>`,
+      buttons: {
+        roll: { label: "Roll Surge Die", callback: () => this.handlePlayerRoll() }
+      },
+      default: "roll"
+    }).render(true);
+
+    if (surgeSocket) {
+      console.log("Surge Dice: Sending roll request to other users via socketlib");
+      surgeSocket.executeForOthers('showRollDialog', game.user.name);
+    } else {
+      console.error("Surge Dice: surgeSocket not initialized when trying to send roll request!");
+      ui.notifications.error("Socket not ready! Please wait a moment and try again.");
+    }
+    await ChatMessage.create({
+      content: `<p>${game.user.name} has requested a Surge Roll from all players!</p>`,
+      style: CONST.CHAT_MESSAGE_STYLES.OTHER
+    });
+  }
+
+  // Method for GM to receive and process a player's roll result
+  gmCollectPlayerRollResult(data) {
+    if (!game.user.isGM) {
+      console.warn("Surge Dice: gmCollectPlayerRollResult called on non-GM client. Ignoring.");
+      return;
+    }
+    console.log("Surge Dice: GM received player roll result:", data);
+    this.currentGroupRollData.rolls.push({
+      userName: data.userName,
+      resultText: data.resultText,
+      control: data.control,
+      chaos: data.chaos,
+      rollDetails: data.rollDetails
+    });
+    this.currentGroupRollData.totalControlForGroupRoll += data.control;
+    this.currentGroupRollData.totalChaosForGroupRoll += data.chaos;
+    
+    // GM adds points to their authoritative pool from this player's roll
+    this.addPoints(data.control, data.chaos); 
+  }
+
+  async handlePlayerRoll() {
+    const roll = new Roll('1ds'); 
+    await roll.evaluate();
+
+    await roll.toMessage({
+      flavor: 'Surge Roll',
+      speaker: ChatMessage.getSpeaker({ actor: game.user.character })
+    });
+
+    let control = 0;
+    let chaos = 0;
+    let resultText = "";
+    if (roll.terms[0] instanceof CONFIG.Dice.terms.s) { 
+        const surgeDieInstance = roll.terms[0]; 
+        resultText = surgeDieInstance.results.map(r => {
+            const label = SURGE_DIE_LABELS[r.result];
+            console.log(`Surge Dice: Mapping result: r.result=${r.result}, label='${label}' (SURGE_DIE_LABELS length: ${SURGE_DIE_LABELS.length})`); // DEBUG LOG
+            return label || r.result.toString(); 
+        }).join(", ");
+
+        surgeDieInstance.results.forEach(r => {
+            const surge = SURGE_DIE_CATEGORY[r.result] ?? { chaos: 0, control: 0 }; 
+            chaos += surge.chaos;
+            control += surge.control;
+        });
+    }
+
+    const rollResultPayload = {
+      userName: game.user.name,
+      resultText: resultText, 
+      control: control,
+      chaos: chaos,
+      rollDetails: roll.toJSON() 
+    };
+
+    if (game.user.isGM) {
+      console.log("Surge Dice: GM handling own roll for group collection.");
+      this.gmCollectPlayerRollResult(rollResultPayload); 
+    } else {
+      if (surgeSocket) {
+        console.log("Surge Dice: Player sending roll result to GM:", rollResultPayload);
+        surgeSocket.executeAsGM("gmCollectPlayerRollResult", rollResultPayload);
+      } else {
+        console.error("Surge Dice: Player cannot send roll to GM, socket not initialized!");
+        ui.notifications.error("Cannot send roll to GM: connection issue.");
+      }
+    }
+    // Player's local pool is NOT updated here directly from their roll.
+    // The GM's pool is the authority. If player UIs need to reflect the global pool,
+    // the GM would need to broadcast pool updates after each gmCollectPlayerRollResult.
+  }
+
+  addPoints(control, chaos) {
+    if (!game.user.isGM) {
+      console.warn(`Surge Dice: Player ${game.user.name} attempted to call addPoints directly. This should be GM-driven. Ignoring.`);
+      // ui.notifications.warn("Pool point changes are GM-driven."); // Optional: notify player
+      return;
+    }
+
+    // This method should now primarily be called by the GM (e.g., after collecting roll results)
+    const newControl = this.control + control;
+    const newChaos = this.chaos + chaos;
+
+    game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, newControl);
+    game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, newChaos);
+
+    this.control = newControl;
+    this.chaos = newChaos;
+    
+    console.log(`Surge Dice: GM added points. New pool: C${this.control}/X${this.chaos}. Settings updated.`);
+    this.render(true); // Re-render GM's UI
+    this.broadcastPoolState(game.user.name, "pointsAdded"); // Broadcast with a generic action type
+  }
+
+  close() {
+    if (this.element) {
+      this.element.style.display = 'none'; // Use display: none to hide
+      console.log("Surge Dice: Hiding surge pool window.");
+    }
+  }
+
+  // Method for GM to manually broadcast the current pool state
+  broadcastPoolState(initiatorName = game.user.name, actionType = "otherUpdate") {
+    if (game.user.isGM && surgeSocket) {
+      console.log(`Surge Dice: GM (${game.user.name}) broadcasting pool state. Initiator: ${initiatorName}, Action: ${actionType}.`);
+      const currentState = { 
+          control: this.control, 
+          chaos: this.chaos,
+          initiatorName: initiatorName,
+          actionType: actionType // Add actionType to the payload
+      };
+      surgeSocket.executeForOthers("updatePlayerPoolUI", currentState);
+
+      // If a point was spent, GM also shows the notification locally
+      const displayName = USER_TO_CHARACTER_NAME_MAP[initiatorName] || initiatorName;
+      if (actionType === "spentControl") {
+        ui.notifications.info(`The resonance stills—${displayName} reclaims control from within.`);
+      } else if (actionType === "spentChaos") {
+        ui.notifications.info(`Searing echoes rumble through ${displayName}—chaos answers!`);
+      }
+
+    } else if (game.user.isGM && !surgeSocket) {
+      console.error("Surge Dice: GM cannot broadcast pool state, socket not initialized!");
+      ui.notifications.error("Cannot sync pool: connection issue.");
+    } else if (!game.user.isGM) {
+      // This button shouldn't be visible to non-GMs, but as a safeguard:
+      console.warn("Surge Dice: Non-GM attempted to use broadcastPoolState. This action is GM-only.");
+      ui.notifications.warn("Only GMs can sync the pool.");
+    }
+  }
+}
+
+// Global access point
+export function initializeSurgePool() {
+  console.log("Surge Dice: Initializing SurgePool object");
+  surgePool = new SurgePool(); // surgePool is now initialized here, reads from settings
+  
+  if (game.user.isGM) {
+    console.log(`Surge Dice: GM (${game.user.name}) is initializing/verifying settings and broadcasting.`);
+    
+    // Check if settings exist and are numbers, if not, GM sets them.
+    const currentSettingsControl = game.settings.get('surge-dice', SETTINGS.GM_POOL_CONTROL);
+    const currentSettingsChaos = game.settings.get('surge-dice', SETTINGS.GM_POOL_CHAOS);
+
+    let needsSettingUpdate = false;
+    if (typeof currentSettingsControl !== 'number') {
+      console.log(`Surge Dice: GM is setting initial control value (${surgePool.control}) in settings.`);
+      game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, surgePool.control);
+      needsSettingUpdate = true;
+    }
+    if (typeof currentSettingsChaos !== 'number') {
+      console.log(`Surge Dice: GM is setting initial chaos value (${surgePool.chaos}) in settings.`);
+      game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, surgePool.chaos);
+      needsSettingUpdate = true;
+    }
+
+    if (needsSettingUpdate) {
+      console.log("Surge Dice: GM updated settings. Pool values are now Control: " + surgePool.control + ", Chaos: " + surgePool.chaos);
+    } else {
+      console.log("Surge Dice: GM confirmed settings already exist and are valid. Control: " + surgePool.control + ", Chaos: " + surgePool.chaos);
+    }
+
+    // GM always broadcasts their authoritative state after initialization or verification.
+    if (surgeSocket) {
+      const initialState = { 
+          control: surgePool.control, 
+          chaos: surgePool.chaos,
+          initiatorName: game.user.name, // GM is initiating this sync
+          actionType: "initialSync"      // Specific action type for initial sync
+      };
+      console.log(`Surge Dice: GM broadcasting state after init/verify - Control: ${initialState.control}, Chaos: ${initialState.chaos}, Action: ${initialState.actionType}`);
+      surgeSocket.executeForOthers("updatePlayerPoolUI", initialState);
+    } else {
+      console.warn("Surge Dice: GM initialized, but surgeSocket not ready for initial broadcast.");
+    }
+  }
+  
+  game.surgeDice = {
+    togglePool: () => {
+      if (!surgePool.element || surgePool.element.style.display === 'none') {
+        surgePool.render(true); // force re-render to load/center and make visible
+      } else {
+        surgePool.close();
+      }
+    },
+    addPoints: (control, chaos) => surgePool.addPoints(control, chaos)
+  };
+  // surgePool.render(true); // Don't render by default, let toggle do it.
+}
+
+// Export this function to be called from init.js
+export function registerSocketlibHandlers() {
+  console.log("Surge Dice: Attempting to register with socketlib");
+  surgeSocket = socketlib.registerModule("surge-dice");
+  surgeSocket.register("showRollDialog", showRollDialog);
+  // Register the new handler for GM to receive player roll results
+  surgeSocket.register("gmCollectPlayerRollResult", (data) => {
+    if (game.user.isGM && surgePool) {
+      surgePool.gmCollectPlayerRollResult(data);
+    } else if (!game.user.isGM) {
+      // This case should not happen if executeAsGM is used correctly
+      console.warn("Surge Dice: Non-GM client received a gmCollectPlayerRollResult call. This is unexpected.");
+    } else if (!surgePool) {
+      console.error("Surge Dice: surgePool not available for gmCollectPlayerRollResult on GM client.");
+    }
+  });
+  // Register the new handler for players to update their UI
+  surgeSocket.register("updatePlayerPoolUI", updatePlayerPoolUI);
+
+  // Handler for GM to process player requests to change the pool state
+  surgeSocket.register("requestPoolChange", (data) => {
+    if (game.user.isGM && surgePool) {
+      const { action, userId } = data;
+      const requestingUser = game.users.get(userId);
+      const userName = requestingUser ? requestingUser.name : "Unknown Player";
+
+      console.log(`Surge Dice: GM received request from ${userName} to '${action}'.`);
+
+      // Get current values from settings as the source of truth
+      let currentControl = game.settings.get('surge-dice', SETTINGS.GM_POOL_CONTROL);
+      let currentChaos = game.settings.get('surge-dice', SETTINGS.GM_POOL_CHAOS);
+      let newControl = currentControl;
+      let newChaos = currentChaos;
+      let changeMade = false;
+
+      if (action === "useControl") {
+        if (currentControl > 0) {
+          newControl = currentControl - 1;
+          newChaos = currentChaos + 1;
+          changeMade = true;
+          // ui.notifications.info(`${userName} used 1 Control point.`); // Removed: Handled by broadcast
+        } else {
+          ui.notifications.warn(`Request from ${userName} to use Control denied: No Control points available.`);
+        }
+      } else if (action === "useChaos") {
+        if (currentChaos > 0) {
+          newChaos = currentChaos - 1;
+          newControl = currentControl + 1;
+          changeMade = true;
+          // ui.notifications.info(`${userName} used 1 Chaos point.`); // Removed: Handled by broadcast
+        } else {
+          ui.notifications.warn(`Request from ${userName} to use Chaos denied: No Chaos points available.`);
+        }
+      } else {
+        console.warn(`Surge Dice: GM received unknown action '${action}' from ${userName}.`);
+        return; // Unknown action
+      }
+
+      if (changeMade) {
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, newControl);
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, newChaos);
+
+        // Update GM's local pool from the new settings values
+        surgePool.control = newControl;
+        surgePool.chaos = newChaos;
+        
+        console.log(`Surge Dice: Pool updated by GM due to ${userName}'s request. New pool: C${surgePool.control}/X${surgePool.chaos}. Settings updated.`);
+        surgePool.render(true);       // GM updates their UI
+        const actionType = action === "useControl" ? "spentControl" : "spentChaos";
+        surgePool.broadcastPoolState(userName, actionType); // Pass player name and specific actionType
+      }
+
+    } else if (!game.user.isGM) {
+      console.warn("Surge Dice: Non-GM client received a requestPoolChange call. This is unexpected.");
+    } else if (!surgePool) {
+      console.error("Surge Dice: surgePool not available for requestPoolChange on GM client.");
+    }
+  });
+
+  console.log("Surge Dice: Socketlib handlers registered (showRollDialog, gmCollectPlayerRollResult, updatePlayerPoolUI, requestPoolChange)");
+} 

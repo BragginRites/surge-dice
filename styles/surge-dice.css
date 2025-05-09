@@ -1,0 +1,176 @@
+.surge-interpretation {
+    margin-top: 0.3em;
+    text-align: center;
+}
+
+.surge-chaos {
+    color: crimson;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+.surge-control {
+    color: dodgerblue;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+/* Die face styles */
+.surge-control-plus-plus, .surge-control-plus {
+    color: dodgerblue;
+}
+
+.surge-chaos-minus-minus, .surge-chaos-minus {
+    color: crimson;
+}
+
+.surge-blank {
+    color: #666;
+}
+
+/* Surge Pool Window Styles */
+#surge-pool {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #666;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+    min-width: 200px;
+    z-index: 100;
+    cursor: grab;
+}
+
+.pool-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid #666;
+    border-radius: 6px 6px 0 0;
+}
+
+.pool-header h2 {
+    margin: 0;
+    font-size: 16px;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    border-radius: 12px;
+    margin: -4px;
+}
+
+.close-button:hover {
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+    background: rgba(255, 0, 0, 0.2);
+}
+
+.surge-pool-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+}
+
+.pool-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.pool-value {
+    font-size: 28px;
+    font-weight: bold;
+    min-width: 40px;
+    text-align: center;
+    text-shadow: 0 0 10px currentColor;
+}
+
+.pool-divider {
+    font-size: 24px;
+    color: #666;
+}
+
+.pool-section.control .pool-value,
+.pool-section.control button {
+    color: dodgerblue;
+}
+
+.pool-section.chaos .pool-value,
+.pool-section.chaos button {
+    color: crimson;
+}
+
+.pool-footer {
+    padding: 10px;
+    border-top: 1px solid #666;
+    text-align: center;
+}
+
+button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    padding: 4px 12px;
+    color: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px currentColor;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.group-roll {
+    font-size: 12px;
+    padding: 2px 4px;
+    color: #ffd700;
+    background: none;
+    border: none;
+    margin-left: 4px;
+}
+
+.group-roll:hover {
+    text-shadow: 0 0 8px #ffd700;
+    background: none;
+    box-shadow: none;
+}
+
+/* New style for the sync button */
+.sync-pool {
+    font-size: 12px; /* Consistent with group-roll button */
+    padding: 2px 4px; /* Consistent with group-roll button */
+    color: #ffd700;   /* Consistent with group-roll button, gold color */
+    background: none;
+    border: none;
+    /* No margin-left, relying on h2's gap and the space in HTML template */
+}
+
+.sync-pool:hover {
+    text-shadow: 0 0 8px #ffd700; /* Consistent with group-roll button */
+    background: none;
+    box-shadow: none;
+} 

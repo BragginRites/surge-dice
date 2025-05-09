@@ -1,0 +1,40 @@
+{
+  "id": "surge-dice",
+  "title": "Surge Dice - A Narrative Dice Pool",
+  "description": "A module to roll Surge dice (+/-) for D&D 5th Edition.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12",
+    "systems": ["dnd5e"]
+  },
+  "authors": [
+    {
+      "name": "BragginRites",
+      "discord": "Braggin#1205",
+      "flags": {}
+    }
+  ],
+  "esmodules": [
+    "scripts/init.js",
+    "scripts/surge-die.js",
+    "scripts/chat-renderer.js",
+    "scripts/settings.js",
+    "scripts/surge-pool.js"
+  ],
+  "styles": [
+    "styles/surge-dice.css"
+  ],
+  "socket": true,
+  "relationships": {
+    "requires": [
+      {
+        "id": "socketlib",
+        "type": "module"
+      }
+    ]
+  },
+  "url": "https://github.com/BragginRites/surge-dice",
+  "manifest": "https://github.com/BragginRites/surge-dice/releases/download/0.1.0/module.json",
+  "download": "https://github.com/BragginRites/surge-dice/releases/download/0.1.0/surge-dice.zip"
+} 
