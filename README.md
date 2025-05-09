@@ -29,6 +29,7 @@ Check out my other module(s):
     - At the beginning of each game session, all participants collectively roll a single Surge Die (a special 10-sided die).
     - The result of this roll determines the initial state of the Surge Pool (Control and Chaos points) for the session.
     - Participants can spend Control or Chaos points to influence the game, with spending one type of point generating the other.
+    - The Surge Pool UI is hidden by default. Press **B** to show or hide the Surge Pool window. This can be configured in the control settings.
 
 ## Rolling the Surge Die
 
