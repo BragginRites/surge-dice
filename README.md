@@ -2,6 +2,9 @@
 
 Surge Dice is a Foundry VTT module that introduces an element of unpredictable magical energy into your game, represented by a shared pool of "Control" and "Chaos" points. This system reflects a dynamic push and pull of magical forces, inspired by the Destiny Dice mechanic from the Star Wars™ Roleplaying Game by Fantasy Flight Games. It is designed to be system-agnostic for various TTRPGs like D&D 5e or Pathfinder 2e.
 
+![image](https://github.com/user-attachments/assets/0fb8c329-a6c9-4ecb-9aab-458d4f65f3fa)
+
+
 Coffee helps me stay up to 2am to write these modules. Thank you for the lack of sleep in advance!
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bragginrites)
