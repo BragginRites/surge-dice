@@ -68,7 +68,7 @@ jobs:
       - name: Create Module ZIP
         run: |
           # Zip everything in the repo except hidden folders/files we don't need
-          zip -r bg3-inspired-hotbar.zip . \
+          zip -r ${{ env.PACKAGE_ID }}.zip . \
             -x "*.git*" \
                ".github*" \
                "*.vscode*"
@@ -80,7 +80,7 @@ jobs:
           name: Release ${{ steps.tag.outputs.tag }}
           body: ${{ env.CHANGELOG }}
           files: |
-            bg3-inspired-hotbar.zip
+            ${{ env.PACKAGE_ID }}.zip
             module.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
