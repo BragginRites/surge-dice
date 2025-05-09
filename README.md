@@ -33,7 +33,11 @@ At the beginning of each game session, all participants collectively roll a sing
 
 ## Interpreting the Results
 
-The Surge Die has five distinct types of faces, each appearing twice:
+The Surge Die has five distinct types of faces, each appearing twice. The full array of faces on the 10-sided die is as follows:
+
+```javascript
+['++', '+', '', '-', '--', '++', '+', '', '-', '--']
+```
 
 *   **`++` (Double Plus):** Grants **+2 Control points** to the Surge Pool.
 *   **`+` (Single Plus):** Grants **+1 Control point** to the Surge Pool.
