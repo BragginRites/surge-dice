@@ -49,8 +49,8 @@ export function setupChatMessageHandler() {
       }).join('');
 
       const parts = [];
-      if (termTotalControl > 0) parts.push(`<span class="surge-control">+${termTotalControl} Control</span>`);
-      if (termTotalChaos > 0) parts.push(`<span class="surge-chaos">+${termTotalChaos} Chaos</span>`);
+      if (termTotalControl > 0) parts.push(`<span class="surge-dice-control">+${termTotalControl} Control</span>`);
+      if (termTotalChaos > 0) parts.push(`<span class="surge-dice-chaos">+${termTotalChaos} Chaos</span>`);
       if (termTotalChaos === 0 && termTotalControl === 0) parts.push("Neutral");
       
       const overallResultText = parts.join(", ") || "Neutral";
@@ -69,7 +69,7 @@ export function setupChatMessageHandler() {
                 </div>
               </section>
             </div>
-            <div class="surge-interpretation">
+            <div class="surge-dice-interpretation">
               <strong>Result:</strong> ${overallResultText}
             </div>
           </div>

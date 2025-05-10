@@ -138,7 +138,7 @@ export class SurgePool {
       if (this.element) this.element.remove(); // Clean up if old element exists but not in DOM
 
       const div = document.createElement('div');
-      div.id = 'surge-pool';
+      div.id = 'surge-dice-pool';
       div.innerHTML = content;
       document.body.appendChild(div);
       this.element = div;

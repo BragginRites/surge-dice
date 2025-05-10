@@ -51,11 +51,11 @@ export class SurgeDie extends foundry.dice.terms.Die {
     const index = numericResult - 1;
     const label = SURGE_DIE_LABELS[index] ?? "";
     switch (label) {
-      case '++': return ['surge-control-plus-plus'];
-      case '+': return ['surge-control-plus'];
-      case '--': return ['surge-chaos-minus-minus'];
-      case '-': return ['surge-chaos-minus'];
-      default: return ['surge-blank'];
+      case '++': return ['surge-dice-control-plus-plus'];
+      case '+': return ['surge-dice-control-plus'];
+      case '--': return ['surge-dice-chaos-minus-minus'];
+      case '-': return ['surge-dice-chaos-minus'];
+      default: return ['surge-dice-blank'];
     }
   }
 
