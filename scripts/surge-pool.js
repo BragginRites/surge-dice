@@ -1,5 +1,5 @@
 import { SETTINGS } from './settings.js'; // Import SETTINGS
-import { SURGE_DIE_LABELS, SURGE_DIE_CATEGORY } from './surge-die.js'; // Import constants
+import { SURGE_DIE_LABELS, SURGE_DIE_CATEGORY, SurgeDie } from './surge-die.js'; // Import constants
 
 // Username to Character Name Mapping
 const USER_TO_CHARACTER_NAME_MAP = {
@@ -371,8 +371,9 @@ export class SurgePool {
 
   async handlePlayerRoll() {
     const roll = new Roll('1ds'); 
-    await roll.evaluate();
+    await roll.evaluate({async: true}); // Ensure async evaluation for consistency
 
+    // Send to chat first
     await roll.toMessage({
       flavor: 'Surge Roll',
       speaker: ChatMessage.getSpeaker({ actor: game.user.character })
@@ -380,21 +381,35 @@ export class SurgePool {
 
     let control = 0;
     let chaos = 0;
-    let resultText = "";
-    if (roll.terms[0] instanceof CONFIG.Dice.terms.s) { 
-        const surgeDieInstance = roll.terms[0]; 
-        resultText = surgeDieInstance.results.map(r => {
-            const label = SURGE_DIE_LABELS[r.result];
-            console.log(`Surge Dice: Mapping result: r.result=${r.result}, label='${label}' (SURGE_DIE_LABELS length: ${SURGE_DIE_LABELS.length})`); // DEBUG LOG
-            return label || r.result.toString(); 
-        }).join(", ");
+    let resultText = ""; // This will be the visual symbol like '--' or '+'
 
+    if (roll.terms[0] instanceof SurgeDie) { 
+        const surgeDieInstance = roll.terms[0]; 
+        
+        // Process each result on the die (typically only one for '1ds')
         surgeDieInstance.results.forEach(r => {
-            const surge = SURGE_DIE_CATEGORY[r.result] ?? { chaos: 0, control: 0 }; 
-            chaos += surge.chaos;
-            control += surge.control;
+            const rawResult = r.result; // This is the 1-based value from _roll() or an object
+            // Ensure we get the actual number, whether it's direct or nested
+            const numericResult = (typeof rawResult === 'object' && rawResult !== null && 'result' in rawResult) 
+                                    ? rawResult.result 
+                                    : rawResult;
+            
+            const index = numericResult - 1; // Convert 1-based to 0-based index for arrays
+
+            if (index >= 0 && index < SURGE_DIE_LABELS.length) {
+                resultText += (resultText ? ", " : "") + SURGE_DIE_LABELS[index];
+                const category = SURGE_DIE_CATEGORY[index];
+                if (category) {
+                    chaos += category.chaos;
+                    control += category.control;
+                }
+            } else {
+                console.error(`Surge Dice | Invalid index ${index} from numericResult ${numericResult}`);
+                resultText += (resultText ? ", " : "") + "Error"; 
+            }
         });
     }
+    // console.log(`SurgePool handlePlayerRoll: resultText='${resultText}', control=${control}, chaos=${chaos}`);
 
     const rollResultPayload = {
       userName: game.user.name,
@@ -405,20 +420,17 @@ export class SurgePool {
     };
 
     if (game.user.isGM) {
-      console.log("Surge Dice: GM handling own roll for group collection.");
+      // console.log("Surge Dice: GM handling own roll for group collection.", rollResultPayload);
       this.gmCollectPlayerRollResult(rollResultPayload); 
     } else {
       if (surgeSocket) {
-        console.log("Surge Dice: Player sending roll result to GM:", rollResultPayload);
+        // console.log("Surge Dice: Player sending roll result to GM:", rollResultPayload);
         surgeSocket.executeAsGM("gmCollectPlayerRollResult", rollResultPayload);
       } else {
         console.error("Surge Dice: Player cannot send roll to GM, socket not initialized!");
         ui.notifications.error("Cannot send roll to GM: connection issue.");
       }
     }
-    // Player's local pool is NOT updated here directly from their roll.
-    // The GM's pool is the authority. If player UIs need to reflect the global pool,
-    // the GM would need to broadcast pool updates after each gmCollectPlayerRollResult.
   }
 
   addPoints(control, chaos) {
