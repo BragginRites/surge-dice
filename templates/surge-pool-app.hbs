@@ -1,0 +1,24 @@
+<div class="surge-dice-app">
+    <header class="window-header flexrow">
+        <h4 class="window-title">{{title}}</h4>
+        <div class="header-buttons">
+            <a class="header-button roll-surge-die" title="Roll Initial Surge Die"><i class="fas fa-dice-d10"></i></a>
+            <a class="header-button reset-surge-pool" title="Reset Surge Pool"><i class="fas fa-sync"></i></a>
+            <a class="header-button close"><i class="fas fa-times"></i></a>
+        </div>
+    </header>
+
+    <section class="window-content">
+        <div class="surge-pool-container">
+            <div class="pool-section control-pool">
+                <div class="points">{{controlPoints}}</div>
+                <button type="button" class="spend-control">Control</button>
+            </div>
+            <div class="pool-separator"></div>
+            <div class="pool-section chaos-pool">
+                <div class="points">{{chaosPoints}}</div>
+                <button type="button" class="spend-chaos">Chaos</button>
+            </div>
+        </div>
+    </section>
+</div>

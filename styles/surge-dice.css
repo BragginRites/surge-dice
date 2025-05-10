@@ -1,0 +1,100 @@
+/*
+When styling elements for the Surge Dice module, ensure all selectors are specific enough
+to avoid unintended conflicts with other modules or core Foundry VTT styles.
+Consider wrapping module-specific UI elements in a container with a unique ID or class,
+and then prefixing selectors with that identifier.
+
+For example:
+#surge-dice .ui .my-button {
+    // styles for a button within the surge dice UI
+}
+*/
+
+.surge-dice-app .window-header {
+    border-bottom: 1px solid var(--color-border-light-primary);
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+}
+
+.surge-dice-app .window-header .window-title {
+    font-weight: bold;
+}
+
+.surge-dice-app .header-buttons a {
+    margin-left: 5px;
+}
+
+.surge-dice-app .surge-pool-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.surge-dice-app .pool-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-basis: 45%; /* Give some space for the separator */
+}
+
+.surge-dice-app .pool-section .points {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.surge-dice-app .control-pool .points {
+    color: #007bff; /* Bright Blue */
+}
+
+.surge-dice-app .chaos-pool .points {
+    color: #dc3545; /* Bright Red */
+}
+
+.surge-dice-app .pool-section button {
+    padding: 8px 15px;
+    font-size: 1em;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100px; /* Fixed width for buttons */
+}
+
+.surge-dice-app .pool-section button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.surge-dice-app .control-pool button {
+    background-color: #007bff;
+    color: white;
+    border: 1px solid #0056b3;
+}
+
+.surge-dice-app .control-pool button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.surge-dice-app .chaos-pool button {
+    background-color: #dc3545;
+    color: white;
+    border: 1px solid #a71d2a;
+}
+
+.surge-dice-app .chaos-pool button:hover:not(:disabled) {
+    background-color: #a71d2a;
+}
+
+.surge-dice-app .pool-separator {
+    width: 1px;
+    background-color: var(--color-border-light-secondary);
+    align-self: stretch;
+    margin: 0 10px; /* Space around the separator */
+}
+
+/* Ensure app has a slight background if not inheriting properly */
+#surge-dice-app.app-window .window-content {
+    background: var(--color-bg-window-alt, #f0f0f0); /* Fallback if var not defined */
+}
