@@ -30,6 +30,7 @@ Check out my other module(s):
     - The result of this roll determines the initial state of the Surge Pool (Control and Chaos points) for the session.
     - Participants can spend Control or Chaos points to influence the game, with spending one type of point generating the other.
     - The Surge Pool UI is hidden by default. Press **B** to show or hide the Surge Pool window. This can be configured in the control settings.
+    - The GM can right-click on Control or Chaos values to manually set them, useful for game setup or adjustments.
 
 ## Rolling the Surge Die
 

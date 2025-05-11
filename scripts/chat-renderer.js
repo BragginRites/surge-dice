@@ -4,15 +4,11 @@ export function setupChatMessageHandler() {
   Hooks.on("renderChatMessage", (message, html, data) => {
     const roll = message.rolls?.[0];
     if (!roll) return;
-    // console.log("Surge Dice | Processing roll:", roll);
 
     for (const term of roll.terms) {
-      // console.log("Surge Dice | Checking term:", term);
       if (!(term instanceof SurgeDie)) {
-        // console.log("Surge Dice | Not a surge die, skipping");
         continue;
       }
-      // console.log("Surge Dice | Found surge die term:", term);
 
       let termTotalChaos = 0;
       let termTotalControl = 0;
@@ -31,15 +27,6 @@ export function setupChatMessageHandler() {
         const labelForChat = SURGE_DIE_LABELS[index] ?? "Err"; // Symbol for chat
         const categoryEffect = SURGE_DIE_CATEGORY[index] ?? { chaos: 0, control: 0, error: true };
 
-        console.log(
-          `ChatRender (Term: ${term.expression}, DieInTerm #${dieInTermCounter}):\\n` +
-          `  Raw Roll Result: ${JSON.stringify(rawResult)}\\n` +
-          `  Numeric 1-idx: ${numericResult}\\n` +
-          `  Calculated 0-idx: ${index}\\n` +
-          `  Chat Label: '${labelForChat}'\\n` +
-          `  Chat Effect: Ctl ${categoryEffect.control}, Chs ${categoryEffect.chaos}${categoryEffect.error ? ' (ERR CATEGORY)' : ''}`
-        );
-
         if (!categoryEffect.error) {
           termTotalChaos += categoryEffect.chaos;
           termTotalControl += categoryEffect.control;
@@ -48,18 +35,15 @@ export function setupChatMessageHandler() {
         return `<li class="roll ${term.getResultCSS(r).join(' ')}">${term.getResultLabel(r)}</li>`;
       }).join('');
 
-      const parts = [];
-      if (termTotalControl > 0) parts.push(`<span class="surge-dice-control">+${termTotalControl} Control</span>`);
-      if (termTotalChaos > 0) parts.push(`<span class="surge-dice-chaos">+${termTotalChaos} Chaos</span>`);
-      if (termTotalChaos === 0 && termTotalControl === 0) parts.push("Neutral");
-      
-      const overallResultText = parts.join(", ") || "Neutral";
-      // console.log(`ChatRender (Term: ${term.expression}): Overall Result for chat: ${overallResultText}`);
+      let resultText = '';
+      if (termTotalControl > 0) resultText = `+${termTotalControl} Control`;
+      else if (termTotalChaos > 0) resultText = `+${termTotalChaos} Chaos`;
+      else resultText = "Neutral";
 
       const customHTML = `
         <div class="dice-roll">
           <div class="dice-result">
-            <div class="dice-formula">${term.expression} (${overallResultText})</div>
+            <div class="dice-formula">Surge Dice Rolled!</div>
             <div class="dice-tooltip">
               <section class="tooltip-part">
                 <div class="dice">
@@ -70,7 +54,7 @@ export function setupChatMessageHandler() {
               </section>
             </div>
             <div class="surge-dice-interpretation">
-              <strong>Result:</strong> ${overallResultText}
+              <strong>Result:</strong> <span class="surge-dice-${termTotalControl > 0 ? 'control' : termTotalChaos > 0 ? 'chaos' : 'neutral'}">${resultText}</span>
             </div>
           </div>
         </div>

@@ -107,7 +107,6 @@ export function registerSettings() {
     default: 0
   });
 
-  console.log("Surge Dice: All settings registered.");
 }
 
 export function registerKeybindings() {

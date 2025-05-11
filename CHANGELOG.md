@@ -1,3 +1,16 @@
+## [0.2.1] - 2025-05-11
+### Changed
+- Simplified and improved chat message display for Surge Dice rolls
+  - Cleaner header showing "Surge dice rolled!"
+  - Streamlined result display with appropriate styling
+  - Removed redundant information from chat output
+
+### Added
+- GM can now manually set Control and Chaos values via right-click
+  - Right-click on pool values opens an input dialog
+  - Changes sync to all connected players
+  - Visual indicators (cursor and tooltip) show right-click functionality
+
 ## [0.2.0] - 2025-05-11
 ### Added
 - Customizable notification messages for Control and Chaos point usage.
