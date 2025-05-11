@@ -236,20 +236,21 @@ export class SurgePool {
         console.log(`Surge Dice: GM used Control. New pool: C${this.control}/X${this.chaos}. Settings updated.`);
         this.render(true);
         this.broadcastPoolState(game.user.name, "spentControl");
-      } else {
+      } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
         ui.notifications.warn("Cannot use Control: No points available.");
       }
     } else {
-      // Player requests GM to use Control
-      if (this.control > 0) { // Optimistic check on client-side, GM will verify
+      if (this.control > 0) {
         console.log(`Surge Dice: Player ${game.user.name} requesting to use Control point.`);
         if (surgeSocket) {
           surgeSocket.executeAsGM("requestPoolChange", { action: "useControl", userId: game.user.id });
         } else {
           console.error("Surge Dice: Player cannot request pool change, socket not initialized!");
-          ui.notifications.error("Cannot request change: connection issue.");
+          if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+            ui.notifications.error("Cannot request change: connection issue.");
+          }
         }
-      } else {
+      } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
         ui.notifications.warn("Cannot use Control: No points available (according to your local view).");
       }
     }
@@ -270,20 +271,21 @@ export class SurgePool {
         console.log(`Surge Dice: GM used Chaos. New pool: C${this.control}/X${this.chaos}. Settings updated.`);
         this.render(true);
         this.broadcastPoolState(game.user.name, "spentChaos");
-      } else {
+      } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
         ui.notifications.warn("Cannot use Chaos: No points available.");
       }
     } else {
-      // Player requests GM to use Chaos
-      if (this.chaos > 0) { // Optimistic check on client-side, GM will verify
+      if (this.chaos > 0) {
         console.log(`Surge Dice: Player ${game.user.name} requesting to use Chaos point.`);
         if (surgeSocket) {
           surgeSocket.executeAsGM("requestPoolChange", { action: "useChaos", userId: game.user.id });
         } else {
           console.error("Surge Dice: Player cannot request pool change, socket not initialized!");
-          ui.notifications.error("Cannot request change: connection issue.");
+          if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+            ui.notifications.error("Cannot request change: connection issue.");
+          }
         }
-      } else {
+      } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
         ui.notifications.warn("Cannot use Chaos: No points available (according to your local view).");
       }
     }
@@ -455,24 +457,28 @@ export class SurgePool {
           control: this.control, 
           chaos: this.chaos,
           initiatorName: initiatorName,
-          actionType: actionType // Add actionType to the payload
+          actionType: actionType
       };
       surgeSocket.executeForOthers("updatePlayerPoolUI", currentState);
 
-      // If a point was spent, GM also shows the notification locally
-      if (actionType === "spentControl") {
-        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CONTROL_NOTIFICATION));
-      } else if (actionType === "spentChaos") {
-        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CHAOS_NOTIFICATION));
+      // Only show notification to GM if their notifications are enabled
+      if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+        if (actionType === "spentControl") {
+          ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CONTROL_NOTIFICATION));
+        } else if (actionType === "spentChaos") {
+          ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CHAOS_NOTIFICATION));
+        }
       }
-
     } else if (game.user.isGM && !surgeSocket) {
       console.error("Surge Dice: GM cannot broadcast pool state, socket not initialized!");
-      ui.notifications.error("Cannot sync pool: connection issue.");
+      if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+        ui.notifications.error("Cannot sync pool: connection issue.");
+      }
     } else if (!game.user.isGM) {
-      // This button shouldn't be visible to non-GMs, but as a safeguard:
       console.warn("Surge Dice: Non-GM attempted to use broadcastPoolState. This action is GM-only.");
-      ui.notifications.warn("Only GMs can sync the pool.");
+      if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+        ui.notifications.warn("Only GMs can sync the pool.");
+      }
     }
   }
 
@@ -631,38 +637,34 @@ export function registerSocketlibHandlers() {
           newControl = currentControl - 1;
           newChaos = currentChaos + 1;
           changeMade = true;
-          // ui.notifications.info(`${userName} used 1 Control point.`); // Removed: Handled by broadcast
-        } else {
-          ui.notifications.warn(`Request from ${userName} to use Control denied: No Control points available.`);
+        } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+          ui.notifications.warn(`Request to use Control denied: No Control points available.`);
         }
       } else if (action === "useChaos") {
         if (currentChaos > 0) {
           newChaos = currentChaos - 1;
           newControl = currentControl + 1;
           changeMade = true;
-          // ui.notifications.info(`${userName} used 1 Chaos point.`); // Removed: Handled by broadcast
-        } else {
-          ui.notifications.warn(`Request from ${userName} to use Chaos denied: No Chaos points available.`);
+        } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+          ui.notifications.warn(`Request to use Chaos denied: No Chaos points available.`);
         }
       } else {
-        console.warn(`Surge Dice: GM received unknown action '${action}' from ${userName}.`);
-        return; // Unknown action
+        console.warn(`Surge Dice: GM received unknown action '${action}'.`);
+        return;
       }
 
       if (changeMade) {
         game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, newControl);
         game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, newChaos);
 
-        // Update GM's local pool from the new settings values
         surgePool.control = newControl;
         surgePool.chaos = newChaos;
         
-        console.log(`Surge Dice: Pool updated by GM due to ${userName}'s request. New pool: C${surgePool.control}/X${surgePool.chaos}. Settings updated.`);
-        surgePool.render(true);       // GM updates their UI
+        console.log(`Surge Dice: Pool updated by GM. New pool: C${surgePool.control}/X${surgePool.chaos}. Settings updated.`);
+        surgePool.render(true);
         const actionType = action === "useControl" ? "spentControl" : "spentChaos";
-        surgePool.broadcastPoolState(userName, actionType); // Pass player name and specific actionType
+        surgePool.broadcastPoolState(userName, actionType);
       }
-
     } else if (!game.user.isGM) {
       console.warn("Surge Dice: Non-GM client received a requestPoolChange call. This is unexpected.");
     } else if (!surgePool) {

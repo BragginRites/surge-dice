@@ -59,7 +59,7 @@ jobs:
       - name: Create Git Tag
         id: tag
         run: |
-          TAG="v${{ env.VERSION }}"
+          TAG="${{ env.VERSION }}"
           echo "Creating tag: $TAG"
           git tag "$TAG"
           git push origin "$TAG"
