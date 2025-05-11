@@ -5,11 +5,11 @@
 <div class="surge-pool-container">
   <div class="pool-section control">
     <div class="pool-value">{{control}}</div>
-    <button class="use-control" {{#unless control}}disabled{{/unless}}>Control</button>
+    <button class="use-control" {{#unless control}}disabled{{/unless}}>{{controlLabel}}</button>
   </div>
   <div class="pool-divider">|</div>
   <div class="pool-section chaos">
     <div class="pool-value">{{chaos}}</div>
-    <button class="use-chaos" {{#unless chaos}}disabled{{/unless}}>Chaos</button>
+    <button class="use-chaos" {{#unless chaos}}disabled{{/unless}}>{{chaosLabel}}</button>
   </div>
 </div> 

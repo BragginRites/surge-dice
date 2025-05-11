@@ -1,18 +1,6 @@
 import { SETTINGS } from './settings.js'; // Import SETTINGS
 import { SURGE_DIE_LABELS, SURGE_DIE_CATEGORY, SurgeDie } from './surge-die.js'; // Import constants
 
-// Username to Character Name Mapping
-const USER_TO_CHARACTER_NAME_MAP = {
-  "Gamemaster": "The World",
-  "Jake": "Fizz",
-  "Jacob": "Persys",
-  "Bianca": "Aureilyn",
-  "Minh": "Eldrin",
-  "Rufus": "Lyra",
-  "Tom": "Domingo",
-  "Ali": "Soren"
-};
-
 let surgeSocket; // Module-level variable for the socket
 let surgePool = null; // Make surgePool accessible to top-level functions if needed for callbacks
 
@@ -38,33 +26,28 @@ function syncPoolState(newState) {
 // Called on player clients to update their UI from GM broadcast
 function updatePlayerPoolUI(poolData) {
   if (!surgePool) {
-    // This can happen if a socket message arrives before initializeSurgePool has completed on this client.
-    // The pool will sync correctly once initialized and it renders or receives another update.
     console.warn("Surge Dice: updatePlayerPoolUI called, but local surgePool object is not yet initialized. Pool will sync on next render/update.", poolData);
     return;
   }
 
-  if (!game.user.isGM) { // Ensure it's a player and pool exists
-    console.log(`Surge Dice: Player ${game.user.name} received pool update:`, poolData);
+  if (!game.user.isGM) {
+    console.log(`Surge Dice: Player received pool update:`, poolData);
     const oldControl = surgePool.control;
     const oldChaos = surgePool.chaos;
 
     surgePool.control = poolData.control;
     surgePool.chaos = poolData.chaos;
-    surgePool.render(true); // Re-render player's UI
+    surgePool.render(true);
 
-    // Notify player ONLY if a point was spent
-    const initiatorUsername = poolData.initiatorName || "Someone"; // Fallback for initiator username
-    const displayName = USER_TO_CHARACTER_NAME_MAP[initiatorUsername] || initiatorUsername;
-    const action = poolData.actionType;
-
-    if (action === "spentControl") {
-      ui.notifications.info(`The resonance stills—${displayName} reclaims control from within.`);
-    } else if (action === "spentChaos") {
-      ui.notifications.info(`Searing echoes rumble through ${displayName}—chaos answers!`);
+    // Only show notifications if enabled in settings
+    if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+      if (oldControl > surgePool.control) {
+        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CONTROL_NOTIFICATION));
+      }
+      if (oldChaos > surgePool.chaos) {
+        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CHAOS_NOTIFICATION));
+      }
     }
-    // No other notifications from this function
-
   } else if (game.user.isGM) {
     // GM should not process this specific message meant for players, their UI is already updated.
   } else {
@@ -124,7 +107,9 @@ export class SurgePool {
     return {
       control: this.control,
       chaos: this.chaos,
-      isGM: game.user.isGM
+      isGM: game.user.isGM,
+      controlLabel: game.settings.get('surge-dice', SETTINGS.CONTROL_LABEL),
+      chaosLabel: game.settings.get('surge-dice', SETTINGS.CHAOS_LABEL)
     };
   }
 
@@ -475,11 +460,10 @@ export class SurgePool {
       surgeSocket.executeForOthers("updatePlayerPoolUI", currentState);
 
       // If a point was spent, GM also shows the notification locally
-      const displayName = USER_TO_CHARACTER_NAME_MAP[initiatorName] || initiatorName;
       if (actionType === "spentControl") {
-        ui.notifications.info(`The resonance stills—${displayName} reclaims control from within.`);
+        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CONTROL_NOTIFICATION));
       } else if (actionType === "spentChaos") {
-        ui.notifications.info(`Searing echoes rumble through ${displayName}—chaos answers!`);
+        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CHAOS_NOTIFICATION));
       }
 
     } else if (game.user.isGM && !surgeSocket) {
@@ -491,12 +475,68 @@ export class SurgePool {
       ui.notifications.warn("Only GMs can sync the pool.");
     }
   }
+
+  async _onControlClick(event) {
+    event.preventDefault();
+    if (this.control > 0) {
+      const roll = await new SurgeDie().roll();
+      this.control--;
+      
+      if (game.user.isGM) {
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CONTROL, this.control);
+        this._broadcastPoolUpdate({
+          control: this.control,
+          chaos: this.chaos
+        });
+      } else {
+        surgeSocket.executeAsGM('requestPoolChange', {
+          type: 'control',
+          initiatorId: game.user.id
+        });
+      }
+
+      // Show notification if enabled
+      if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CONTROL_NOTIFICATION));
+      }
+
+      this.render(true);
+    }
+  }
+
+  async _onChaosClick(event) {
+    event.preventDefault();
+    if (this.chaos > 0) {
+      const roll = await new SurgeDie().roll();
+      this.chaos--;
+      
+      if (game.user.isGM) {
+        game.settings.set('surge-dice', SETTINGS.GM_POOL_CHAOS, this.chaos);
+        this._broadcastPoolUpdate({
+          control: this.control,
+          chaos: this.chaos
+        });
+      } else {
+        surgeSocket.executeAsGM('requestPoolChange', {
+          type: 'chaos',
+          initiatorId: game.user.id
+        });
+      }
+
+      // Show notification if enabled
+      if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
+        ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CHAOS_NOTIFICATION));
+      }
+
+      this.render(true);
+    }
+  }
 }
 
 // Global access point
 export function initializeSurgePool() {
   console.log("Surge Dice: Initializing SurgePool object");
-  surgePool = new SurgePool(); // surgePool is now initialized here, reads from settings
+  surgePool = new SurgePool();
   
   if (game.user.isGM) {
     console.log(`Surge Dice: GM (${game.user.name}) is initializing/verifying settings and broadcasting.`);
@@ -528,8 +568,8 @@ export function initializeSurgePool() {
       const initialState = { 
           control: surgePool.control, 
           chaos: surgePool.chaos,
-          initiatorName: game.user.name, // GM is initiating this sync
-          actionType: "initialSync"      // Specific action type for initial sync
+          initiatorName: game.user.name,
+          actionType: "initialSync"
       };
       console.log(`Surge Dice: GM broadcasting state after init/verify - Control: ${initialState.control}, Chaos: ${initialState.chaos}, Action: ${initialState.actionType}`);
       surgeSocket.executeForOthers("updatePlayerPoolUI", initialState);
@@ -539,16 +579,16 @@ export function initializeSurgePool() {
   }
   
   game.surgeDice = {
+    surgePool, // Expose the surgePool instance
     togglePool: () => {
       if (!surgePool.element || surgePool.element.style.display === 'none') {
-        surgePool.render(true); // force re-render to load/center and make visible
+        surgePool.render(true);
       } else {
         surgePool.close();
       }
     },
     addPoints: (control, chaos) => surgePool.addPoints(control, chaos)
   };
-  // surgePool.render(true); // Don't render by default, let toggle do it.
 }
 
 // Export this function to be called from init.js
