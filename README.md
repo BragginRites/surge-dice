@@ -20,9 +20,9 @@ Check out my other module(s):
 
 - **Installation**:
   1. Open Foundry VTT and navigate to **Add-on Modules**.
-  2. Click **Install Module** and paste this manifest URL:
+  2. Click **Install Module** and paste this manifest URL at the bottom of the page:
      ```
-     https://github.com/BragginRites/surge-dice/releases/download/0.1.0/module.json
+     https://github.com/BragginRites/surge-dice/releases/latest/download/module.json
      ```
   3. Click **Install** and enable the module in your world settings.
 - **Core Functionality**:
