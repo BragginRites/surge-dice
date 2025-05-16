@@ -1,0 +1,34 @@
+# Module TODO List
+
+## Core Features & Enhancements
+- [x] **Customizable UI Title for Surge Pool**
+    - [x] Define a new game setting for a custom title for the Surge Pool window (e.g., `SETTINGS.SURGE_POOL_TITLE_TEXT` in `scripts/settings.js`).
+        - [x] Set a default value, for example, "Surge Pool".
+        - [x] Ensure the setting is configurable by the GM in the module settings.
+    - [x] Modify `SurgePool.prototype.getData` in `scripts/surge-pool.js` to fetch and return the custom title from the newly defined game setting.
+    - [x] Update `templates/surge-pool.hbs` to dynamically display the title passed from `getData()`, replacing the current hardcoded "Surge Pool" text within the `<h2>` tag. 
+- [x] **Audio Integration**
+    - [x] **Sound Effect Configuration**
+        - [x] Define `SETTINGS.CONTROL_SOUND_PATH` in `scripts/settings.js`.
+            - [x] Register as `type: String` with `filePicker: 'audio'` for path input and FilePicker button.
+            - [x] Set `name: 'Control Point Sound'`, `hint: 'Audio file to play when a Control point is used. Clear to disable sound.'`.
+            - [x] `scope: 'world'`, `config: true`, `default: ''`.
+        - [x] Define `SETTINGS.CHAOS_SOUND_PATH` in `scripts/settings.js`.
+            - [x] Register as `type: String` with `filePicker: 'audio'` for path input and FilePicker button.
+            - [x] Set `name: 'Chaos Point Sound'`, `hint: 'Audio file to play when a Chaos point is used. Clear to disable sound.'`.
+            - [x] `scope: 'world'`, `config: true`, `default: ''`.
+    - [x] **Implement Sound Playback on Point Usage (Revised for Client Toggle)**
+        - [x] Add `SETTINGS.CLIENT_PLAY_SOUNDS` (client-scoped boolean, default true) to `scripts/settings.js`.
+        - [x] In `scripts/surge-pool.js` (`registerSocketlibHandlers`):
+            - [x] Register a new socket handler `playSurgeSoundGlobally({soundPath})`.
+            - [x] This handler, on each client, checks their `CLIENT_PLAY_SOUNDS` setting.
+            - [x] If true, plays the `soundPath` locally: `AudioHelper.play({src: soundPath, ...}, false)`.
+        - [x] In `SurgePool.prototype.useControl` (GM's direct action):
+            - [x] If sound should play, emit `surgeSocket.executeForEveryone('playSurgeSoundGlobally', { soundPath: controlSoundPath })` instead of direct `AudioHelper.play()`.
+        - [x] In `SurgePool.prototype.useChaos` (GM's direct action):
+            - [x] If sound should play, emit `surgeSocket.executeForEveryone('playSurgeSoundGlobally', { soundPath: chaosSoundPath })` instead of direct `AudioHelper.play()`.
+        - [x] In `requestPoolChange` socket handler (on GM client, processing player request):
+            - [x] If sound should play, emit `surgeSocket.executeForEveryone('playSurgeSoundGlobally', { soundPath: soundPathToPlay })` instead of direct `AudioHelper.play()`.
+        - [x] In `updatePlayerPoolUI` function (for player clients after GM broadcast):
+            - [x] Ensure NO direct sound playback logic. Sounds are initiated globally by GM's actions (direct or via player request processing).
+            - [x] Ensure notifications remain local and conditional on player's `SHOW_NOTIFICATIONS` setting.

@@ -36,7 +36,7 @@ function updatePlayerPoolUI(poolData) {
     surgePool.chaos = poolData.chaos;
     surgePool.render(true);
 
-    // Only show notifications if enabled in settings
+    // Show notifications if enabled (local to player)
     if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
       if (oldControl > surgePool.control) {
         ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CONTROL_NOTIFICATION));
@@ -45,6 +45,10 @@ function updatePlayerPoolUI(poolData) {
         ui.notifications.info(game.settings.get('surge-dice', SETTINGS.CHAOS_NOTIFICATION));
       }
     }
+
+    // Sound playback is handled by GM action (useControl/useChaos) globally.
+    // No sound playback needed here for players to avoid duplication.
+
   } else if (game.user.isGM) {
     // GM should not process this specific message meant for players, their UI is already updated.
   } else {
@@ -103,7 +107,8 @@ export class SurgePool {
       chaos: this.chaos,
       isGM: game.user.isGM,
       controlLabel: game.settings.get('surge-dice', SETTINGS.CONTROL_LABEL),
-      chaosLabel: game.settings.get('surge-dice', SETTINGS.CHAOS_LABEL)
+      chaosLabel: game.settings.get('surge-dice', SETTINGS.CHAOS_LABEL),
+      poolTitle: game.settings.get('surge-dice', SETTINGS.SURGE_POOL_TITLE_TEXT)
     };
   }
 
@@ -249,6 +254,12 @@ export class SurgePool {
         
         this.render(true);
         this.broadcastPoolState(game.user.name, "spentControl");
+
+        // Emit event for all clients to potentially play sound
+        const controlSoundPath = game.settings.get('surge-dice', SETTINGS.CONTROL_SOUND_PATH);
+        if (controlSoundPath && surgeSocket) {
+          surgeSocket.executeForEveryone("playSurgeSoundGlobally", { soundPath: controlSoundPath });
+        }
       } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
         ui.notifications.warn("Cannot use Control: No points available.");
       }
@@ -282,6 +293,12 @@ export class SurgePool {
 
         this.render(true);
         this.broadcastPoolState(game.user.name, "spentChaos");
+
+        // Emit event for all clients to potentially play sound
+        const chaosSoundPath = game.settings.get('surge-dice', SETTINGS.CHAOS_SOUND_PATH);
+        if (chaosSoundPath && surgeSocket) {
+          surgeSocket.executeForEveryone("playSurgeSoundGlobally", { soundPath: chaosSoundPath });
+        }
       } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
         ui.notifications.warn("Cannot use Chaos: No points available.");
       }
@@ -666,12 +683,14 @@ export function registerSocketlibHandlers() {
       let newControl = currentControl;
       let newChaos = currentChaos;
       let changeMade = false;
+      let soundPathToPlay = null;
 
       if (action === "useControl") {
         if (currentControl > 0) {
           newControl = currentControl - 1;
           newChaos = currentChaos + 1;
           changeMade = true;
+          soundPathToPlay = game.settings.get('surge-dice', SETTINGS.CONTROL_SOUND_PATH);
         } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
           ui.notifications.warn(`Request to use Control denied: No Control points available.`);
         }
@@ -680,6 +699,7 @@ export function registerSocketlibHandlers() {
           newChaos = currentChaos - 1;
           newControl = currentControl + 1;
           changeMade = true;
+          soundPathToPlay = game.settings.get('surge-dice', SETTINGS.CHAOS_SOUND_PATH);
         } else if (game.settings.get('surge-dice', SETTINGS.SHOW_NOTIFICATIONS)) {
           ui.notifications.warn(`Request to use Chaos denied: No Chaos points available.`);
         }
@@ -698,11 +718,24 @@ export function registerSocketlibHandlers() {
         surgePool.render(true);
         const actionType = action === "useControl" ? "spentControl" : "spentChaos";
         surgePool.broadcastPoolState(userName, actionType);
+
+        // Emit event for all clients to potentially play sound
+        if (soundPathToPlay && surgeSocket) {
+          surgeSocket.executeForEveryone("playSurgeSoundGlobally", { soundPath: soundPathToPlay });
+        }
       }
     } else if (!game.user.isGM) {
       console.warn("Surge Dice: Non-GM client received a requestPoolChange call. This is unexpected.");
     } else if (!surgePool) {
       console.error("Surge Dice: surgePool not available for requestPoolChange on GM client.");
+    }
+  });
+
+  // Handler for clients to play sounds based on their local setting
+  surgeSocket.register("playSurgeSoundGlobally", (data) => {
+    const { soundPath } = data;
+    if (soundPath && game.settings.get('surge-dice', SETTINGS.CLIENT_PLAY_SOUNDS)) {
+      AudioHelper.play({src: soundPath, volume: 0.8, autoplay: true, loop: false}, false);
     }
   });
 }

@@ -7,7 +7,11 @@ export const SETTINGS = {
   CONTROL_LABEL: 'controlLabel',
   CHAOS_LABEL: 'chaosLabel',
   CONTROL_NOTIFICATION: 'controlNotification',
-  CHAOS_NOTIFICATION: 'chaosNotification'
+  CHAOS_NOTIFICATION: 'chaosNotification',
+  SURGE_POOL_TITLE_TEXT: 'surgePoolTitleText',
+  CONTROL_SOUND_PATH: 'controlSoundPath',
+  CHAOS_SOUND_PATH: 'chaosSoundPath',
+  CLIENT_PLAY_SOUNDS: 'clientPlaySounds'
 };
 
 export function registerSettings() {
@@ -107,6 +111,52 @@ export function registerSettings() {
     default: 0
   });
 
+  // New Setting for Surge Pool Title
+  game.settings.register('surge-dice', SETTINGS.SURGE_POOL_TITLE_TEXT, {
+    name: 'Surge Pool Title',
+    hint: 'Set a custom title for the Surge Pool window. Make blank to remove title.',
+    scope: 'world',
+    config: true,
+    type: String,
+    default: 'Surge Pool',
+    onChange: () => {
+      if (game.surgeDice?.surgePool?.element) {
+        game.surgeDice.surgePool.render(true);
+      }
+    }
+  });
+
+  // Control Sound Path Setting
+  game.settings.register('surge-dice', SETTINGS.CONTROL_SOUND_PATH, {
+    name: 'Control Point Sound',
+    hint: 'Audio file to play when a Control point is used. Clear to disable sound.',
+    scope: 'world',
+    config: true,
+    type: String,
+    filePicker: 'audio',
+    default: ''
+  });
+
+  // Chaos Sound Path Setting
+  game.settings.register('surge-dice', SETTINGS.CHAOS_SOUND_PATH, {
+    name: 'Chaos Point Sound',
+    hint: 'Audio file to play when a Chaos point is used. Clear to disable sound.',
+    scope: 'world',
+    config: true,
+    type: String,
+    filePicker: 'audio',
+    default: ''
+  });
+
+  // Client-Side Setting to Toggle Sound Playback
+  game.settings.register('surge-dice', SETTINGS.CLIENT_PLAY_SOUNDS, {
+    name: 'Play Surge Sounds',
+    hint: 'Enable or disable sound effects from the Surge Pool for yourself.',
+    scope: 'client',
+    config: true,
+    type: Boolean,
+    default: true
+  });
 }
 
 export function registerKeybindings() {
