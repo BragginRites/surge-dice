@@ -59,7 +59,7 @@ jobs:
       - name: Create Git Tag
         id: tag
         run: |
-          TAG="${{ env.VERSION }}"
+          TAG="v${{ env.VERSION }}"
           echo "Creating tag: $TAG"
           git tag "$TAG"
           git push origin "$TAG"
@@ -88,8 +88,8 @@ jobs:
       - name: Publish to Foundry VTT
         run: |
           # Construct the manifest and notes URLs using the version
-          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/module.json"
-          NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${{ env.VERSION }}"
+          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION }}/module.json"
+          NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v${{ env.VERSION }}"
           
           # Create the release payload
           payload=$(cat <<EOF
@@ -112,7 +112,7 @@ jobs:
           # Send the release to Foundry VTT
           curl -X POST \
             -H "Content-Type: application/json" \
-            -H "Authorization: ${{ secrets.SURGE_DICE_API_KEY }}" \
+            -H "Authorization: ${{ secrets.FOUNDRY_API_KEY }}" \
             -d "$payload" \
             https://api.foundryvtt.com/_api/packages/release_version/
         env:
