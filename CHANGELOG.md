@@ -1,3 +1,7 @@
+## [0.3.1] - 2025-06-29
+### Fixed
+- Fixed the sound effect to use wildcard paths such as `audio/sounds/dice/roll/*` or `audio/sounds/dice/roll/roll*.mp3`
+
 ## [0.3.0] - 2025-05-16
 ### Added
 - **Customizable Surge Pool Title**

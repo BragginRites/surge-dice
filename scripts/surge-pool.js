@@ -732,10 +732,115 @@ export function registerSocketlibHandlers() {
   });
 
   // Handler for clients to play sounds based on their local setting
-  surgeSocket.register("playSurgeSoundGlobally", (data) => {
+  surgeSocket.register("playSurgeSoundGlobally", async (data) => {
     const { soundPath } = data;
     if (soundPath && game.settings.get('surge-dice', SETTINGS.CLIENT_PLAY_SOUNDS)) {
-      AudioHelper.play({src: soundPath, volume: 0.8, autoplay: true, loop: false}, false);
+      try {
+        let resolvedPath = soundPath;
+        
+        // Check if the path contains wildcards (*, ?)
+        if (soundPath.includes('*') || soundPath.includes('?')) {
+          // Extract directory and pattern from the path
+          const lastSlashIndex = soundPath.lastIndexOf('/');
+          const directory = lastSlashIndex > -1 ? soundPath.substring(0, lastSlashIndex) : '';
+          const pattern = lastSlashIndex > -1 ? soundPath.substring(lastSlashIndex + 1) : soundPath;
+          
+          // Try multiple approaches to find files
+          let foundFiles = [];
+          
+          // Approach 1: Try browsing with different source types
+          const sourcesToTry = ['data', 'public', ''];
+          
+          for (const source of sourcesToTry) {
+            try {
+              const browseResult = await FilePicker.browse(source, directory);
+              if (browseResult && browseResult.files && browseResult.files.length > 0) {
+                foundFiles = browseResult.files;
+                break;
+              }
+            } catch (error) {
+              // Continue to next source
+            }
+          }
+          
+          // Approach 2: If no files found, try browsing parent directories
+          if (foundFiles.length === 0 && directory) {
+            const pathParts = directory.split('/');
+            
+            // Try browsing each level up
+            for (let i = pathParts.length - 1; i >= 0; i--) {
+              const parentDir = pathParts.slice(0, i).join('/');
+              try {
+                const browseResult = await FilePicker.browse('data', parentDir);
+                if (browseResult && browseResult.files) {
+                  // Filter files that are in the subdirectory we want
+                  const targetSubdir = pathParts.slice(i).join('/');
+                  const filteredFiles = browseResult.files.filter(file => 
+                    file.startsWith(targetSubdir + '/') || file.includes('/' + targetSubdir + '/')
+                  );
+                  
+                  if (filteredFiles.length > 0) {
+                    foundFiles = filteredFiles;
+                    break;
+                  }
+                }
+              } catch (error) {
+                // Continue to next parent directory
+              }
+            }
+          }
+          
+          // Approach 3: If we still have no files, try browsing the root
+          if (foundFiles.length === 0) {
+            try {
+              const browseResult = await FilePicker.browse('data', '');
+              if (browseResult && browseResult.files) {
+                // Look for files that contain our directory path
+                foundFiles = browseResult.files.filter(file => 
+                  file.includes(directory) || file.startsWith(directory + '/')
+                );
+              }
+            } catch (error) {
+              // Final approach failed
+            }
+          }
+          
+          // Process the found files
+          if (foundFiles.length > 0) {
+            // Convert glob pattern to regex for filtering
+            const regexPattern = pattern
+              .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special regex chars except * and ?
+              .replace(/\*/g, '.*') // Convert * to .*
+              .replace(/\?/g, '.'); // Convert ? to .
+            
+            const matchingFiles = foundFiles.filter(file => {
+              const fileName = file.split('/').pop(); // Get just the filename
+              return new RegExp(`^${regexPattern}$`, 'i').test(fileName);
+            });
+            
+            if (matchingFiles.length > 0) {
+              // Randomly select one of the matching files
+              resolvedPath = matchingFiles[Math.floor(Math.random() * matchingFiles.length)];
+            } else {
+              // No files match the pattern, exit early
+              return;
+            }
+          } else {
+            // No files found at all, exit early
+            return;
+          }
+        }
+        
+        // Play the resolved audio file
+        AudioHelper.play({src: resolvedPath, volume: 0.8, autoplay: true, loop: false}, false);
+        
+      } catch (error) {
+        console.warn(`Surge Dice: Error playing sound ${soundPath}:`, error);
+        // Don't fallback to the wildcard path as it will always fail
+        if (!soundPath.includes('*') && !soundPath.includes('?')) {
+          AudioHelper.play({src: soundPath, volume: 0.8, autoplay: true, loop: false}, false);
+        }
+      }
     }
   });
 }
